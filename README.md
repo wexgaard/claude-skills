@@ -8,21 +8,23 @@ A collection of Claude Code skills for AI-assisted development workflows.
 
 ```
 /plugin marketplace add wexgaard/claude-skills
-/plugin install memory-compiler-setup@wexgaard-skills
+/plugin install memory-compiler@wexgaard-skills
 ```
+
+Invoke the installed skill in any project with `/memory-compiler:setup`.
 
 ### Manual
 
 ```bash
 git clone https://github.com/wexgaard/claude-skills.git
-cp -r claude-skills/skills/memory-compiler-setup ~/.claude/skills/
+cp -r claude-skills/plugins/memory-compiler/skills/setup ~/.claude/skills/memory-compiler-setup
 ```
 
 ## Available Skills
 
-| Skill | Description |
-|-------|-------------|
-| `memory-compiler-setup` | Installs the Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and configures `.gitignore`. Enables automatic session capture and knowledge compilation. |
+| Plugin | Skill | Description |
+|--------|-------|-------------|
+| `memory-compiler` | `setup` | Installs the Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and configures `.gitignore`. Enables automatic session capture and knowledge compilation. |
 
 ## Requirements
 

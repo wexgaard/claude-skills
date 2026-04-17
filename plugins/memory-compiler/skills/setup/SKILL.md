@@ -1,5 +1,5 @@
 ---
-name: memory-compiler-setup
+name: setup
 description: Sets up Cole Medin's Claude Memory Compiler in the current project. Use this skill when the user asks to install memory compiler, set up knowledge capture, add session memory, enable memory hooks, or wants their Claude Code sessions captured and compiled into a knowledge base. Also use when the user says 'setup memory', 'add brain', or 'install memory-compiler'.
 ---
 

@@ -5,8 +5,8 @@
   },
   "plugins": [
     {
-      "name": "memory-compiler-setup",
-      "source": "./plugins/memory-compiler-setup",
+      "name": "memory-compiler",
+      "source": "./plugins/memory-compiler",
       "description": "Installs Cole Medin's Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
       "category": "development"
     }
