@@ -15,9 +15,18 @@ Invoke the installed skill in any project with `/memory-compiler:setup`.
 
 ### Manual
 
+Bash (macOS / Linux / WSL / Git Bash):
+
 ```bash
 git clone https://github.com/wexgaard/claude-skills.git
 cp -r claude-skills/plugins/memory-compiler/skills/setup ~/.claude/skills/memory-compiler-setup
+```
+
+PowerShell (Windows):
+
+```powershell
+git clone https://github.com/wexgaard/claude-skills.git
+Copy-Item -Recurse -Path "claude-skills\plugins\memory-compiler\skills\setup" -Destination "$env:USERPROFILE\.claude\skills\memory-compiler-setup"
 ```
 
 ## Available Skills
