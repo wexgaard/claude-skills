@@ -11,9 +11,9 @@
       "category": "development"
     },
     {
-      "name": "secondbrain",
-      "source": "./plugins/secondbrain",
-      "description": "Forwards memory-compiler daily logs to a SecondBrain ingest endpoint so per-project session knowledge feeds a personal cross-project brain. Depends on memory-compiler; installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
+      "name": "memory-bridge",
+      "source": "./plugins/memory-bridge",
+      "description": "Bridges memory-compiler daily logs to a SecondBrain-compatible ingest endpoint so per-project session knowledge feeds a central personal brain. Depends on memory-compiler; installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
       "category": "development"
     }
   ]

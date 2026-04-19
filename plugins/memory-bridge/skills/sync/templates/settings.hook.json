@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .secondbrain/sync.py",
+            "command": "python3 .memory-bridge/sync.py",
             "timeout": 30
           }
         ]

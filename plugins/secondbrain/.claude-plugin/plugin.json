@@ -1,8 +1,0 @@
-{
-  "name": "secondbrain",
-  "version": "0.1.0",
-  "description": "Forwards memory-compiler daily logs to a SecondBrain ingest endpoint so per-project session knowledge feeds a personal cross-project brain. Depends on memory-compiler; installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
-  "author": {
-    "name": "Wexgaard"
-  }
-}

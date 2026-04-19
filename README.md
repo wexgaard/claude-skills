@@ -34,7 +34,7 @@ Copy-Item -Recurse -Path "claude-skills\plugins\memory-compiler\skills\setup" -D
 | Plugin | Skill | Description |
 |--------|-------|-------------|
 | `memory-compiler` | `setup` | Installs the Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and configures `.gitignore`. Enables automatic session capture and knowledge compilation. |
-| `secondbrain` | `sync` | Connects a project to a SecondBrain ingest endpoint and forwards `memory-compiler` daily logs on each `SessionEnd`, so per-project session knowledge feeds a personal cross-project brain. Depends on `memory-compiler`. Also handles rotate-key / reconfigure / status / force-today on re-run. |
+| `memory-bridge` | `sync` | Bridges a project to a SecondBrain-compatible ingest endpoint and forwards `memory-compiler` daily logs on each `SessionEnd`, so per-project session knowledge feeds a central personal brain. Depends on `memory-compiler`. Also handles rotate-key / reconfigure / status / force-today on re-run. |
 
 ## Requirements
 

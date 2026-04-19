@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""SecondBrain forwarder for memory-compiler daily logs.
+"""Memory Bridge forwarder for memory-compiler daily logs.
 
-Reads .secondbrain/config.json and .secondbrain/.env, then POSTs
-.memory-compiler/daily/<day>.md to the configured SecondBrain ingest
-endpoint.
+Reads .memory-bridge/config.json and .memory-bridge/.env, then POSTs
+.memory-compiler/daily/<day>.md to the configured SecondBrain-compatible
+ingest endpoint.
 
 Modes:
   (no args)          Forward yesterday's log if not already forwarded.
@@ -34,13 +34,13 @@ DAILY_DIR = ROOT / ".memory-compiler" / "daily"
 
 
 def die(msg: str, code: int = 1) -> None:
-    print(f"secondbrain: {msg}", file=sys.stderr)
+    print(f"memory-bridge: {msg}", file=sys.stderr)
     sys.exit(code)
 
 
 def load_config() -> dict:
     if not CONFIG_PATH.exists():
-        die(f"config missing at {CONFIG_PATH}. Run /secondbrain:sync to install.")
+        die(f"config missing at {CONFIG_PATH}. Run /memory-bridge:sync to install.")
     try:
         return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
@@ -62,12 +62,12 @@ def load_env_file() -> dict:
 
 
 def get_key() -> str:
-    key = load_env_file().get("SECONDBRAIN_INGEST_KEY") or os.environ.get(
-        "SECONDBRAIN_INGEST_KEY"
+    key = load_env_file().get("MEMORY_BRIDGE_INGEST_KEY") or os.environ.get(
+        "MEMORY_BRIDGE_INGEST_KEY"
     )
     if not key:
         die(
-            f"SECONDBRAIN_INGEST_KEY missing. Add it to {ENV_PATH} "
+            f"MEMORY_BRIDGE_INGEST_KEY missing. Add it to {ENV_PATH} "
             "or export it in the environment."
         )
     return key  # type: ignore[return-value]
@@ -152,9 +152,9 @@ def forward_day(day: date, *, priority: str, title_prefix: str = "") -> int:
             path = json.loads(body).get("path", "?")
         except json.JSONDecodeError:
             path = "?"
-        print(f"secondbrain: forwarded {day.isoformat()} -> {path}")
+        print(f"memory-bridge: forwarded {day.isoformat()} -> {path}")
         return 0
-    print(f"secondbrain: {explain_http_failure(status, body)}", file=sys.stderr)
+    print(f"memory-bridge: {explain_http_failure(status, body)}", file=sys.stderr)
     return 1
 
 
@@ -193,9 +193,9 @@ def cmd_connection_test() -> int:
             path = json.loads(body).get("path", "?")
         except json.JSONDecodeError:
             path = "?"
-        print(f"secondbrain: connection ok -> {path}")
+        print(f"memory-bridge: connection ok -> {path}")
         return 0
-    print(f"secondbrain: {explain_http_failure(status, body)}", file=sys.stderr)
+    print(f"memory-bridge: {explain_http_failure(status, body)}", file=sys.stderr)
     return 1
 
 
