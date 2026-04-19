@@ -6,8 +6,8 @@ Reads .memory-bridge/config.json and .memory-bridge/.env, then POSTs
 ingest endpoint.
 
 Modes:
-  (no args)          Forward yesterday's log if not already forwarded.
-                     Intended to run from a SessionEnd hook.
+  (no args)          Catch up any days between last_forwarded_day and today
+                     (exclusive on both ends). Intended to run from SessionEnd.
   --force-today      Forward today's (partial) log as an urgent override.
                      Does not advance the last-forwarded state.
   --connection-test  POST a tiny test article to validate URL + key.
@@ -19,11 +19,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
+import subprocess
 import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+__version__ = "0.2.0"  # keep in sync with plugins/memory-bridge/.claude-plugin/plugin.json
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -31,6 +36,14 @@ CONFIG_PATH = HERE / "config.json"
 ENV_PATH = HERE / ".env"
 STATE_PATH = HERE / "last_forwarded_day"
 DAILY_DIR = ROOT / ".memory-compiler" / "daily"
+
+_DAY_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})$")
+_USER_AGENT = f"memory-bridge/{__version__} (+https://github.com/wexgaard/wexgaard-skills)"
+_FALLBACK_DAYS = 7
+
+
+def _today() -> date:
+    return date.today()
 
 
 def die(msg: str, code: int = 1) -> None:
@@ -84,26 +97,99 @@ def write_state(day: date) -> None:
     STATE_PATH.write_text(day.isoformat() + "\n", encoding="utf-8")
 
 
-def post(url: str, key: str, payload: dict) -> tuple[int, str]:
+# Kept in lockstep with the shell probe in SKILL.md Step 6. If you change the
+# candidate order or the Python-3 sniff here, update the SKILL.md probe too.
+def resolve_python_interpreter() -> str | None:
+    """Return the first working Python 3 interpreter command on PATH, or None."""
+    if shutil.which("python3"):
+        return "python3"
+    python_path = shutil.which("python")
+    if python_path and _is_python3(python_path):
+        return "python"
+    if shutil.which("py") and _py_launcher_has_python3():
+        return "py -3"
+    return None
+
+
+def _is_python3(executable: str) -> bool:
+    try:
+        out = subprocess.run(
+            [executable, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    combined = (out.stdout or "") + (out.stderr or "")
+    return "Python 3" in combined
+
+
+def _py_launcher_has_python3() -> bool:
+    try:
+        out = subprocess.run(
+            ["py", "-3", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if out.returncode != 0:
+        return False
+    combined = (out.stdout or "") + (out.stderr or "")
+    return "Python 3" in combined
+
+
+def _headers_to_dict(headers) -> dict[str, str]:
+    if headers is None:
+        return {}
+    return {str(k).lower(): str(v) for k, v in headers.items()}
+
+
+def post(url: str, key: str, payload: dict) -> tuple[int, str, dict[str, str]]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=data,
-        headers={"Content-Type": "application/json", "X-API-Key": key},
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": key,
+            "User-Agent": _USER_AGENT,
+        },
         method="POST",
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.status, resp.read().decode("utf-8", errors="replace")
+            return (
+                resp.status,
+                resp.read().decode("utf-8", errors="replace"),
+                _headers_to_dict(resp.headers),
+            )
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", errors="replace")
+        return (
+            e.code,
+            e.read().decode("utf-8", errors="replace"),
+            _headers_to_dict(e.headers),
+        )
     except urllib.error.URLError as e:
         die(f"network error reaching {url}: {e.reason}")
-        return 0, ""  # unreachable
+        return 0, "", {}  # unreachable
 
 
-def explain_http_failure(status: int, body: str) -> str:
+_CF_ERROR_RE = re.compile(r"error code:\s*10\d\d", re.IGNORECASE)
+
+
+def explain_http_failure(status: int, body: str, headers: dict[str, str]) -> str:
     if status == 403:
+        cf_ray = headers.get("cf-ray")
+        if cf_ray or _CF_ERROR_RE.search(body) or "cloudflare" in body.lower():
+            return (
+                "403 from Cloudflare (not the ingest server). Likely causes: "
+                "missing/blocked User-Agent, rate limit, or IP reputation. "
+                "Check cf-ray in response headers and consult Cloudflare logs. "
+                "This is NOT an API-key problem."
+            )
         return (
             "403 forbidden: the API key is rejected or the project name does not "
             "match the INGEST_KEY_<PROJECT> env var on the SecondBrain host."
@@ -146,7 +232,7 @@ def forward_day(day: date, *, priority: str, title_prefix: str = "") -> int:
         priority=priority,
         tags=["daily-log"],
     )
-    status, body = post(cfg["url"], key, payload)
+    status, body, headers = post(cfg["url"], key, payload)
     if status == 200:
         try:
             path = json.loads(body).get("path", "?")
@@ -154,26 +240,66 @@ def forward_day(day: date, *, priority: str, title_prefix: str = "") -> int:
             path = "?"
         print(f"memory-bridge: forwarded {day.isoformat()} -> {path}")
         return 0
-    print(f"memory-bridge: {explain_http_failure(status, body)}", file=sys.stderr)
+    print(f"memory-bridge: {explain_http_failure(status, body, headers)}", file=sys.stderr)
     return 1
 
 
+def list_available_days() -> list[date]:
+    if not DAILY_DIR.exists():
+        return []
+    days: list[date] = []
+    for p in DAILY_DIR.iterdir():
+        if p.suffix != ".md":
+            continue
+        m = _DAY_RE.match(p.stem)
+        if not m:
+            continue
+        try:
+            days.append(date.fromisoformat(m.group(1)))
+        except ValueError:
+            continue
+    return sorted(days)
+
+
+def compute_floor(cfg: dict, last: str | None, today: date) -> date:
+    if last:
+        try:
+            return date.fromisoformat(last)
+        except ValueError:
+            pass
+    installed = cfg.get("installed_at")
+    if installed:
+        try:
+            return date.fromisoformat(installed) - timedelta(days=1)
+        except ValueError:
+            pass
+    return today - timedelta(days=_FALLBACK_DAYS)
+
+
 def cmd_normal() -> int:
-    target = date.today() - timedelta(days=1)
+    cfg = load_config()
     last = read_state()
-    if last and last >= target.isoformat():
+    today = _today()
+    floor = compute_floor(cfg, last, today)
+    candidates = [d for d in list_available_days() if d > floor and d < today]
+    if not candidates:
         return 0
-    log_path = DAILY_DIR / f"{target.isoformat()}.md"
-    if not log_path.exists():
-        return 0
-    rc = forward_day(target, priority="normal")
-    if rc == 0:
-        write_state(target)
-    return rc
+    total = len(candidates)
+    for i, day in enumerate(candidates, start=1):
+        rc = forward_day(day, priority="normal")
+        if rc != 0:
+            print(
+                f"memory-bridge: forwarded {i - 1} of {total} days; "
+                f"stopped at {day.isoformat()}",
+                file=sys.stderr,
+            )
+            return rc
+        write_state(day)
+    return 0
 
 
 def cmd_force_today() -> int:
-    return forward_day(date.today(), priority="urgent", title_prefix="[partial] ")
+    return forward_day(_today(), priority="urgent", title_prefix="[partial] ")
 
 
 def cmd_connection_test() -> int:
@@ -187,7 +313,7 @@ def cmd_connection_test() -> int:
         priority="normal",
         tags=["connection-test"],
     )
-    status, body = post(cfg["url"], key, payload)
+    status, body, headers = post(cfg["url"], key, payload)
     if status == 200:
         try:
             path = json.loads(body).get("path", "?")
@@ -195,7 +321,7 @@ def cmd_connection_test() -> int:
             path = "?"
         print(f"memory-bridge: connection ok -> {path}")
         return 0
-    print(f"memory-bridge: {explain_http_failure(status, body)}", file=sys.stderr)
+    print(f"memory-bridge: {explain_http_failure(status, body, headers)}", file=sys.stderr)
     return 1
 
 
@@ -204,13 +330,15 @@ def cmd_status() -> int:
     print(f"url:       {cfg.get('url')}")
     print(f"project:   {cfg.get('project')}")
     print(f"subsystem: {cfg.get('subsystem') or '(none)'}")
+    print(f"installed: {cfg.get('installed_at') or '(unknown)'}")
     print(f"last forwarded: {read_state() or '(never)'}")
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    today = _today()
+    yesterday = (today - timedelta(days=1)).isoformat()
     y_path = DAILY_DIR / f"{yesterday}.md"
     print(f"yesterday log ({yesterday}): {'present' if y_path.exists() else 'missing'}")
-    today = date.today().isoformat()
-    t_path = DAILY_DIR / f"{today}.md"
-    print(f"today log ({today}):      {'present' if t_path.exists() else 'missing'}")
+    today_s = today.isoformat()
+    t_path = DAILY_DIR / f"{today_s}.md"
+    print(f"today log ({today_s}):      {'present' if t_path.exists() else 'missing'}")
     return 0
 
 

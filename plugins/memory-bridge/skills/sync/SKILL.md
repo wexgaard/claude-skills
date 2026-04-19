@@ -101,9 +101,12 @@ Create the following under the project root. The templates referenced below live
   {
     "url": "<ingest URL>",
     "project": "<project>",
-    "subsystem": "<subsystem value, or \"\" if the user left it blank>"
+    "subsystem": "<subsystem value, or \"\" if the user left it blank>",
+    "installed_at": "<YYYY-MM-DD — today's local date, written at setup>"
   }
   ```
+
+  `installed_at` is the floor the forwarder uses on a fresh install to decide how far back to scan for daily logs. Without it, a project with months of `memory-compiler` history would dump all of it into SecondBrain on first `SessionEnd`. See **Timing model → Catch-up behavior** below.
 
 - `.memory-bridge/.env` — a single line:
 
@@ -131,6 +134,18 @@ If `.gitignore` does not exist, create it with just these three lines.
 
 ### Step 6: Merge the `SessionEnd` hook
 
+**Interpreter probe (run before merging).** The template hook command begins with `python3`, but that literal word is resolved at install time. Probe the user's shell for the first Python 3 interpreter on PATH, in this order:
+
+1. `python3` — check with `command -v python3` (unix-like) or `where python3` (Windows).
+2. `python` — resolve the path, then run `python --version` and confirm the output contains `Python 3` (some systems still alias `python` → Python 2).
+3. `py -3` — run `py -3 --version` (Windows py launcher).
+
+The first candidate that resolves to a working Python 3 is the resolved interpreter. Substitute its invocation word (including the `-3` flag for the py launcher) into the `command` field of the template below, keeping the ` .memory-bridge/sync.py` suffix intact.
+
+**If no candidate resolves, abort the skill.** Tell the user: *"Python 3 is required for `memory-bridge` — install it from https://www.python.org/downloads/ (or the `python3` package from the Microsoft Store on Windows) and re-run `/memory-bridge:sync`."* Do **not** create any `.memory-bridge/` files in this state; a half-installed pipeline is worse than none. This mirrors Step 1's hard-prerequisite treatment of `memory-compiler`.
+
+> The canonical probe lives in `resolve_python_interpreter()` in `templates/sync.py` and must stay in lockstep with this step. If you change the candidate order or Python-3 sniff in one, change it in both.
+
 Read the template at `templates/settings.hook.json` in this skill directory. The snippet looks like:
 
 ```json
@@ -152,14 +167,12 @@ Read the template at `templates/settings.hook.json` in this skill directory. The
 }
 ```
 
-Merge into the project's `.claude/settings.json` using the same preserve-and-append pattern `memory-compiler/setup` uses:
+Replace the leading `python3` with the resolved interpreter word from the probe before merging into the project's `.claude/settings.json` using the same preserve-and-append pattern `memory-compiler/setup` uses:
 
 - Preserve all existing settings untouched.
 - If a `SessionEnd` array already exists (e.g. `memory-compiler` added one), **append** the new entry — do not overwrite and do not replace. Appending places the `memory-bridge` hook after `memory-compiler`'s hook, which is the correct order: `memory-compiler` writes the day's log entry first, then `memory-bridge` reads the daily tree.
-- If the exact same command is already present in the `SessionEnd` array, do not add a duplicate.
-- If `.claude/settings.json` does not exist, create it with just the snippet.
-
-> **Note on `python3`:** the template hook uses `python3`. On most Windows installs, `python3` resolves via the py launcher; if the user reports the hook failing with "command not found" on Windows, change it to `python`.
+- If the same `sync.py` command is already present in the `SessionEnd` array (regardless of interpreter word), do not add a duplicate.
+- If `.claude/settings.json` does not exist, create it with just the snippet (using the resolved interpreter).
 
 ### Step 7: Smoke test (two phases)
 
@@ -173,6 +186,7 @@ Interpret the result:
 
 - `memory-bridge: connection ok -> <path>` → phase A passes.
 - `403 forbidden` → the API key is rejected or `source_project` doesn't match the `<PROJECT>` half of the env var on the host. Surface the exact message and offer to rotate the key or reconfigure the project name. Leave the files in place so the user can fix without re-entering everything.
+- `403 from Cloudflare` (error code 10xx in body, or `cf-ray` header in the response) → Cloudflare blocked the request before it reached the ingest server. **Not** an auth problem. Common causes: missing/blocked User-Agent, rate limit, IP reputation. `memory-bridge` 0.2.0+ sends a descriptive User-Agent; if the block persists, have the user check their Cloudflare logs or contact the host operator. Do **not** offer to rotate the API key.
 - `422 unprocessable` → payload issue. Surface the response body and stop.
 - `500 internal` → the host has no ingest keys configured. Tell the user to add `INGEST_KEY_<PROJECT>[__<SUBSYSTEM>]=<secret>` to the ingest host's `.env` and restart, then re-run `/memory-bridge:sync`.
 - `network error` → URL unreachable. Surface the reason and offer to reconfigure the URL.
@@ -197,7 +211,7 @@ Summarise:
 
 If `.memory-bridge/config.json` already exists when the skill is invoked, load and display the current config (URL, project, subsystem, last-forwarded date) and offer:
 
-1. **Sync now** (default) — run `python3 .memory-bridge/sync.py`. Idempotent: if yesterday's log is already forwarded or doesn't exist yet, it no-ops and reports why.
+1. **Sync now** (default) — run `python3 .memory-bridge/sync.py`. Idempotent: forwards every completed day between `last_forwarded_day` and today that hasn't been sent yet (see *Timing model → Catch-up behavior*). If there's nothing to do, it exits silently.
 2. **Force today** — run `python3 .memory-bridge/sync.py --force-today`. Forwards today's partial log as `priority: urgent` and does **not** advance `last_forwarded_day`, so the normal yesterday-flow will still fire on the next `SessionEnd` after midnight.
 3. **Rotate key** — prompt for a new secret, rewrite `.memory-bridge/.env`, re-run the phase-A smoke test. If it passes, confirm. If it fails, leave the old key untouched and surface the error.
 4. **Reconfigure** — re-collect project, URL, and subsystem using the same interactive flow as Step 3 (`AskUserQuestion` for project and subsystem, free-text for URL). Pre-populate each menu with a `Keep current: <value>` option as the first choice so accept-as-is is one click. Do **not** re-prompt for the API key here — "Rotate key" (option 3) handles that. Write the new `config.json`, re-run phase A. If phase A fails, leave the old `config.json` in place and surface the error.
@@ -207,9 +221,17 @@ Never clobber silently. Never duplicate the `.gitignore` lines or the `SessionEn
 
 ## Timing model (why yesterday, not today)
 
-`memory-compiler`'s `SessionEnd` hook *appends* to today's daily log on every session close, so today's log is incomplete until midnight. If `memory-bridge` forwarded today's log on every `SessionEnd`, the ingest host would either get repeated partial snapshots or one fragment per session. Instead, the normal hook forwards **yesterday's** log on the first `SessionEnd` after yesterday's calendar date has rolled over, using `.memory-bridge/last_forwarded_day` to ensure it runs at most once per day.
+`memory-compiler`'s `SessionEnd` hook *appends* to today's daily log on every session close, so today's log is incomplete until midnight. If `memory-bridge` forwarded today's log on every `SessionEnd`, the ingest host would either get repeated partial snapshots or one fragment per session. Instead, the normal hook forwards **completed days only** — everything strictly before today — and uses `.memory-bridge/last_forwarded_day` to ensure each day is forwarded at most once.
 
 Result: the central brain gets complete daily logs with at most a ~1 day lag, which is the right granularity for cross-project reflection. `--force-today` exists for the "I want today's activity surfaced now" case (e.g. a live briefing) and is explicitly marked `priority: urgent` + title-prefixed `[partial]` so the ingest side can handle it distinctly.
+
+### Catch-up behavior
+
+The normal hook does not target a single "yesterday" — it scans `.memory-compiler/daily/` for **every** day whose log file falls between `last_forwarded_day` (exclusive) and today (exclusive), and forwards them in ascending order. After each successful POST, `last_forwarded_day` advances to that day, so a crash or network failure mid-batch resumes cleanly on the next `SessionEnd`. This means weekends, vacations, and other multi-day gaps no longer orphan logs.
+
+On a fresh install with no `last_forwarded_day` yet, the forwarder uses `installed_at` from `config.json` (written during Step 4) as the floor — specifically `installed_at - 1`, so the day before setup is included. If `installed_at` is missing (hand-edited config, or an upgrade from 0.1.0 that never ran successfully), the forwarder defensively caps the backfill to the last 7 days. This prevents a fresh install from dumping months of pre-`memory-bridge` history on first `SessionEnd`.
+
+On a failure mid-batch, the forwarder prints `forwarded N of M days; stopped at <day>` to stderr and exits non-zero, so manual `python .memory-bridge/sync.py` runs propagate the error.
 
 ## Notes
 
@@ -217,3 +239,4 @@ Result: the central brain gets complete daily logs with at most a ~1 day lag, wh
 - Hook failures inside `SessionEnd` do not block Claude Code. If something is wrong, surface it via `--status` or by running `sync.py` manually.
 - The ingest URL and key live entirely on the client side. If the user changes ingest hosts, they `/memory-bridge:sync` → **Reconfigure**.
 - Secrets policy: `.memory-bridge/.env` is gitignored. `.memory-bridge/config.json` is not — it contains no secret.
+- The command examples in this doc show `python3` for readability; the hook installed into `.claude/settings.json` uses whichever interpreter the Step 6 probe resolved (`python3`, `python`, or `py -3`). If the user runs `sync.py` manually and `python3` is not on their PATH, they should substitute the word the hook uses.
