@@ -30,7 +30,7 @@ The secret must already exist on the ingest host (the operator added `INGEST_KEY
 
 1. Verifies `.memory-compiler/` exists in the project root.
 2. Detects whether `.memory-bridge/` already exists. Fresh install vs re-run branches below.
-3. On fresh install: collects URL, project name, optional subsystem, and API key. Writes `.memory-bridge/config.json`, `.memory-bridge/.env`, and `.memory-bridge/sync.py`. Appends `.memory-bridge/.env` and `.memory-bridge/last_forwarded_day` to `.gitignore`. Merges a `SessionEnd` hook into `.claude/settings.json`.
+3. On fresh install: collects project name, URL, API key, and optional subsystem. Writes `.memory-bridge/config.json`, `.memory-bridge/.env`, and `.memory-bridge/sync.py`. Appends `.memory-bridge/.env` and `.memory-bridge/last_forwarded_day` to `.gitignore`. Merges a `SessionEnd` hook into `.claude/settings.json`.
 4. Runs a two-phase smoke test: connection check (POST a tiny article) + data availability check (report whether yesterday's log exists).
 5. On re-run: offers sync now / force today / rotate key / reconfigure / status.
 
@@ -52,14 +52,44 @@ Check whether `.memory-bridge/config.json` exists.
 
 ### Step 3: Collect inputs (fresh install)
 
-Ask the user conversationally — no CLI args — and never invent defaults for the required fields.
+Collect the four inputs below **in this order**: project → URL → API key → subsystem. This puts the two free-text prompts (URL, API key) between the two menu prompts, and places the only optional field last.
 
-1. **Ingest URL** (required, no default). Full URL including `/ingest`, e.g. `https://brain.example.com/ingest`.
-2. **Project name** (required). Suggest the basename of the project directory but make the user confirm. Must be alphanumeric + `_`/`-`, 1–100 chars. This becomes `source_project` in the payload and must match the `<PROJECT>` half of the env var registered on the ingest host (case-insensitive).
-3. **Subsystem** (optional, default `memory-compiler`). Used only to tell the user which env var name to register on the host (`INGEST_KEY_<PROJECT>__<SUBSYSTEM>`), and stored in config for human-readable status. The user can clear it (then the host env var is simply `INGEST_KEY_<PROJECT>`).
-4. **API key** (required). The secret the user already registered on their ingest host.
+For each field, use the prompting style specified. Do **not** fall back to conversational free-text for fields marked "AskUserQuestion" — menus exist so the user sees concrete choices rather than having to invent values.
 
-Before moving on, summarise back to the user: URL, project, subsystem, and which env var they should have registered on the host (`INGEST_KEY_<PROJECT>__<SUBSYSTEM>=<secret>` or bare `INGEST_KEY_<PROJECT>` if subsystem was cleared). Get explicit confirmation to proceed.
+1. **Project name** (required) — use `AskUserQuestion`.
+   - Question: "What name should this project use on the ingest host? This becomes `source_project` in the payload and must match the `<PROJECT>` half of the env var registered on the host (case-insensitive)."
+   - Options, computed from the project directory basename `<BASENAME>`:
+     - `<BASENAME>` — "Use the directory name as-is."
+     - Kebab-case of `<BASENAME>` (lowercase, non-alphanumerics collapsed to `-`) — "Use a normalised kebab-case form." Only offer this option if it differs from `<BASENAME>`.
+     - `Other` — "Enter a custom name." If selected, validate: alphanumeric + `_`/`-`, 1–100 chars. Re-prompt on invalid input.
+
+2. **Ingest URL** (required) — free-text prompt (URLs are unbounded; a menu can't usefully enumerate them).
+   - Prompt: "Full ingest URL including `/ingest`, e.g. `https://brain.example.com/ingest`. No default — paste the URL for your SecondBrain-compatible host."
+   - Validate: must be `http://` or `https://` and end in `/ingest` (warn but allow override if the user insists).
+
+3. **API key** (required) — free-text prompt (secret; must not appear in a menu).
+   - Prompt: "Paste the API key you registered on the ingest host. It will be written to `.memory-bridge/.env` (gitignored) and never shown again."
+   - Do not echo the key in any subsequent summary; refer to it as `<secret>`.
+
+4. **Subsystem** (optional, **default blank**) — use `AskUserQuestion`.
+   - Question: "Optional subsystem tag. Only affects the env var name the ingest host needs. Leave blank unless you run multiple forwarders per project."
+   - Options:
+     - `Leave blank (default)` — "Host env var is `INGEST_KEY_<PROJECT>`. Recommended."
+     - `memory-compiler` — "Host env var is `INGEST_KEY_<PROJECT>__MEMORY_COMPILER`. Use only if you have other forwarders for this project."
+     - `Other` — "Enter a custom subsystem. Alphanumeric + `_`/`-`."
+   - If the user chooses "Leave blank", store `""` in config — do not substitute `memory-compiler`.
+
+**Summary and confirmation.** Before writing any files, summarise back:
+
+- Project: `<project>`
+- URL: `<url>`
+- API key: `<secret>` (not echoed)
+- Subsystem: `<subsystem>` if set, otherwise `(none — bare env var)`
+- Env var the host operator must have registered:
+  - If subsystem is blank: `INGEST_KEY_<PROJECT>=<secret>` (project uppercased, `-` → `_`).
+  - Otherwise: `INGEST_KEY_<PROJECT>__<SUBSYSTEM>=<secret>` (both uppercased, `-` → `_`).
+
+Get explicit confirmation to proceed. If the user rejects, re-open the menu for whichever field they want to change — do not restart the whole flow.
 
 ### Step 4: Write project files
 
@@ -71,7 +101,7 @@ Create the following under the project root. The templates referenced below live
   {
     "url": "<ingest URL>",
     "project": "<project>",
-    "subsystem": "<subsystem or empty string>"
+    "subsystem": "<subsystem value, or \"\" if the user left it blank>"
   }
   ```
 
@@ -170,7 +200,7 @@ If `.memory-bridge/config.json` already exists when the skill is invoked, load a
 1. **Sync now** (default) — run `python3 .memory-bridge/sync.py`. Idempotent: if yesterday's log is already forwarded or doesn't exist yet, it no-ops and reports why.
 2. **Force today** — run `python3 .memory-bridge/sync.py --force-today`. Forwards today's partial log as `priority: urgent` and does **not** advance `last_forwarded_day`, so the normal yesterday-flow will still fire on the next `SessionEnd` after midnight.
 3. **Rotate key** — prompt for a new secret, rewrite `.memory-bridge/.env`, re-run the phase-A smoke test. If it passes, confirm. If it fails, leave the old key untouched and surface the error.
-4. **Reconfigure** — re-collect URL, project, subsystem. Write a new `config.json`. Re-run phase A. Keep the existing key unless the user asks to rotate it too.
+4. **Reconfigure** — re-collect project, URL, and subsystem using the same interactive flow as Step 3 (`AskUserQuestion` for project and subsystem, free-text for URL). Pre-populate each menu with a `Keep current: <value>` option as the first choice so accept-as-is is one click. Do **not** re-prompt for the API key here — "Rotate key" (option 3) handles that. Write the new `config.json`, re-run phase A. If phase A fails, leave the old `config.json` in place and surface the error.
 5. **Status** — run `python3 .memory-bridge/sync.py --status` and print its output.
 
 Never clobber silently. Never duplicate the `.gitignore` lines or the `SessionEnd` hook entry on re-run.
