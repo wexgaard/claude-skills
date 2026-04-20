@@ -4,29 +4,36 @@ A collection of Claude Code skills for AI-assisted development workflows.
 
 ## Installation
 
-### Via Claude Code plugin marketplace
+### Via Claude Code plugin marketplace (recommended)
+
+Add the marketplace once, then install any plugin listed in
+[Available Skills](#available-skills):
 
 ```
 /plugin marketplace add wexgaard/claude-skills
-/plugin install memory-compiler@wexgaard-skills
+/plugin install <plugin>@wexgaard-skills
 ```
 
-Invoke the installed skill in any project with `/memory-compiler:setup`.
+Each plugin's skills are invoked as `/<plugin>:<skill>` — see the table
+below for the exact pairs (e.g. `/memory-compiler:setup`).
 
 ### Manual
+
+Substitute `<plugin>` and `<skill>` with any row from
+[Available Skills](#available-skills) (e.g. `memory-compiler` + `setup`).
 
 Bash (macOS / Linux / WSL / Git Bash):
 
 ```bash
 git clone https://github.com/wexgaard/claude-skills.git
-cp -r claude-skills/plugins/memory-compiler/skills/setup ~/.claude/skills/memory-compiler-setup
+cp -r claude-skills/plugins/<plugin>/skills/<skill> ~/.claude/skills/<plugin>-<skill>
 ```
 
 PowerShell (Windows):
 
 ```powershell
 git clone https://github.com/wexgaard/claude-skills.git
-Copy-Item -Recurse -Path "claude-skills\plugins\memory-compiler\skills\setup" -Destination "$env:USERPROFILE\.claude\skills\memory-compiler-setup"
+Copy-Item -Recurse -Path "claude-skills\plugins\<plugin>\skills\<skill>" -Destination "$env:USERPROFILE\.claude\skills\<plugin>-<skill>"
 ```
 
 ## Available Skills
