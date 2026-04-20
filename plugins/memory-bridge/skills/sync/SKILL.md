@@ -56,28 +56,53 @@ Collect the four inputs below **in this order**: project → URL → API key →
 
 For each field, use the prompting style specified. Do **not** fall back to conversational free-text for fields marked "AskUserQuestion" — menus exist so the user sees concrete choices rather than having to invent values.
 
+**Derivations from the project directory basename** (used to build the project and subsystem menus):
+
+- `<BASENAME>` — the directory basename verbatim.
+- `<KEBAB>` — `<BASENAME>` lowercased, with non-alphanumerics collapsed to `-`, trimmed of leading/trailing `-`.
+- **Split detection** — find the first `.` or `_` in `<BASENAME>` that is neither the first nor the last character. If one exists:
+  - `<HEAD>` = the portion of `<BASENAME>` before that separator.
+  - `<TAIL>` = the portion after it, lowercased, with any remaining `.`/`_` replaced by `-`, trimmed.
+
+  If no such separator exists, `<HEAD>` and `<TAIL>` are undefined and every split-form option below is skipped.
+
+Worked examples (reference for the wizard):
+
+- `TabletopTracker.Api` → `<HEAD>=TabletopTracker`, `<TAIL>=api`. Step 1 default `TabletopTracker`, Step 4 default `api` → env var `INGEST_KEY_TABLETOPTRACKER__API`.
+- `foo_bar` → `<HEAD>=foo`, `<TAIL>=bar`. Step 1 default `foo`, Step 4 default `bar` → env var `INGEST_KEY_FOO__BAR`.
+- `memory-compiler` → no split (hyphen only). Step 1 default `memory-compiler`, Step 4 default blank → env var `INGEST_KEY_MEMORY_COMPILER`.
+- `my-thing` → no split. Step 1 default `my-thing`, Step 4 default blank.
+- `.hidden` → leading dot ignored, no split.
+
 1. **Project name** (required) — use `AskUserQuestion`.
    - Question: "What name should this project use on the ingest host? This becomes `source_project` in the payload and must match the `<PROJECT>` half of the env var registered on the host (case-insensitive)."
-   - Options, computed from the project directory basename `<BASENAME>`:
+   - Options (in order; the first option is the default):
+     - If `<HEAD>`/`<TAIL>` are defined, offer the split form **first**:
+       - `<HEAD>` — "Use the part before the first `.`/`_`; the suffix becomes the subsystem below. Recommended for multi-project solutions (e.g. `Solution.Api`, `Solution.Web`, `foo_bar`)."
      - `<BASENAME>` — "Use the directory name as-is."
-     - Kebab-case of `<BASENAME>` (lowercase, non-alphanumerics collapsed to `-`) — "Use a normalised kebab-case form." Only offer this option if it differs from `<BASENAME>`.
+     - `<KEBAB>` — "Use a normalised kebab-case form." Only offer this option if it differs from both `<BASENAME>` and (when defined) `<HEAD>`.
      - `Other` — "Enter a custom name." If selected, validate: alphanumeric + `_`/`-`, 1–100 chars. Re-prompt on invalid input.
+   - Remember whether the user picked the `<HEAD>` split form — Step 4 reads this to decide whether to surface `<TAIL>` as its default.
 
 2. **Ingest URL** (required) — free-text prompt (URLs are unbounded; a menu can't usefully enumerate them).
-   - Prompt: "Full ingest URL including `/ingest`, e.g. `https://brain.example.com/ingest`. No default — paste the URL for your SecondBrain-compatible host."
+   - Prompt: "Full ingest URL ending in `/ingest`, e.g. `https://example.com/ingest`."
    - Validate: must be `http://` or `https://` and end in `/ingest` (warn but allow override if the user insists).
 
 3. **API key** (required) — free-text prompt (secret; must not appear in a menu).
    - Prompt: "Paste the API key you registered on the ingest host. It will be written to `.memory-bridge/.env` (gitignored) and never shown again."
    - Do not echo the key in any subsequent summary; refer to it as `<secret>`.
 
-4. **Subsystem** (optional, **default blank**) — use `AskUserQuestion`.
+4. **Subsystem** (optional, **default blank unless inferred from the folder suffix**) — use `AskUserQuestion`.
    - Question: "Optional subsystem tag. Only affects the env var name the ingest host needs. Leave blank unless you run multiple forwarders per project."
-   - Options:
-     - `Leave blank (default)` — "Host env var is `INGEST_KEY_<PROJECT>`. Recommended."
-     - `memory-compiler` — "Host env var is `INGEST_KEY_<PROJECT>__MEMORY_COMPILER`. Use only if you have other forwarders for this project."
-     - `Other` — "Enter a custom subsystem. Alphanumeric + `_`/`-`."
-   - If the user chooses "Leave blank", store `""` in config — do not substitute `memory-compiler`.
+   - Options depend on whether the user picked the `<HEAD>` split form in Step 3.1:
+     - **If yes**, surface `<TAIL>` as the default:
+       - `<TAIL>` — "Inferred from the folder suffix. Host env var `INGEST_KEY_<PROJECT>__<TAIL uppercased, `-` → `_`>`."
+       - `Leave blank` — "Host env var `INGEST_KEY_<PROJECT>`."
+       - `Other` — "Enter a custom subsystem. Alphanumeric + `_`/`-`. Host env var becomes `INGEST_KEY_<PROJECT>__<SUBSYSTEM>`."
+     - **Otherwise** (Step 3.1 picked `<BASENAME>`, `<KEBAB>`, or a custom value):
+       - `Leave blank (default)` — "Recommended. Host env var `INGEST_KEY_<PROJECT>`."
+       - `Other` — "Enter a custom subsystem. Alphanumeric + `_`/`-`. Host env var becomes `INGEST_KEY_<PROJECT>__<SUBSYSTEM>`."
+   - Store `""` in config when the user leaves it blank.
 
 **Summary and confirmation.** Before writing any files, summarise back:
 
