@@ -1,7 +1,7 @@
 {
   "name": "memory-compiler",
-  "version": "0.1.2",
-  "description": "Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
+  "version": "0.2.0",
+  "description": "Skills for Cole Medin's Claude Memory Compiler: `setup` clones the upstream repo and wires its hooks into a project; `show-compile-progress` replaces the empty popup window during end-of-day compile with a visible banner, spinner, and live step log.",
   "author": {
     "name": "Wexgaard"
   }

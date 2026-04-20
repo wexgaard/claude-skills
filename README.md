@@ -41,6 +41,7 @@ Copy-Item -Recurse -Path "claude-skills\plugins\<plugin>\skills\<skill>" -Destin
 | Plugin | Skill | Description |
 |--------|-------|-------------|
 | `memory-compiler` | `setup` | Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates `.gitignore` to enable automatic session capture and knowledge compilation. |
+| `memory-compiler` | `show-compile-progress` | Opt-in UI patch for `memory-compiler`'s end-of-day compile. Replaces the empty "claude" popup window with a labelled console that shows a banner, spinner, elapsed time, and live step log; the window closes by itself when the compile finishes. Requires `memory-compiler:setup` to have been run first. |
 | `memory-bridge` | `sync` | Forwards `memory-compiler` daily logs to a configurable HTTP ingestion endpoint on each `SessionEnd`, so per-project session knowledge can feed a cross-project memory store. The forwarder is stdlib-only and POSTs JSON with an `X-API-Key` header; the exact payload and endpoint shape are documented in the skill. Also handles rotate-key / reconfigure / status / force-today on re-run. |
 
 ## Requirements
