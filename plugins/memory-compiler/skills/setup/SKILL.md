@@ -49,7 +49,7 @@ The memory compiler defines hooks for these events:
 - `PreCompact` — captures context before auto-compaction
 - `SessionEnd` — extracts conversation into daily log
 
-**Critical:** When merging, rewrite all hook command paths from relative (e.g., `uv run python hooks/session-start.py`) to reference the `.memory-compiler/` subdirectory (e.g., `uv run python .memory-compiler/hooks/session-start.py`).
+**Critical:** When merging, rewrite each hook command so that `uv` runs against the bundled project: prefix with `uv run --directory .memory-compiler` and keep the script path relative to that directory (e.g., `hooks/session-start.py`). Without `--directory`, `uv` resolves from the project root — which has no `pyproject.toml` — and silently falls back to system Python, leaving `claude_agent_sdk` unavailable to the background flush subprocess.
 
 If the project already has a `.claude/settings.json`:
 
@@ -72,7 +72,7 @@ The merged configuration should look like:
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python .memory-compiler/hooks/session-start.py",
+            "command": "uv run --directory .memory-compiler python hooks/session-start.py",
             "timeout": 15
           }
         ]
@@ -84,7 +84,7 @@ The merged configuration should look like:
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python .memory-compiler/hooks/pre-compact.py",
+            "command": "uv run --directory .memory-compiler python hooks/pre-compact.py",
             "timeout": 10
           }
         ]
@@ -96,7 +96,7 @@ The merged configuration should look like:
         "hooks": [
           {
             "type": "command",
-            "command": "uv run python .memory-compiler/hooks/session-end.py",
+            "command": "uv run --directory .memory-compiler python hooks/session-end.py",
             "timeout": 10
           }
         ]
@@ -124,8 +124,9 @@ Confirm the setup by checking:
 - `.memory-compiler/` directory exists
 - `.memory-compiler/.venv/` exists (uv sync succeeded)
 - `.claude/settings.json` contains the three hook events
-- All hook command paths reference `.memory-compiler/hooks/`
+- All hook commands start with `uv run --directory .memory-compiler python hooks/...`
 - `.gitignore` includes `.memory-compiler/`
+- `uv run --directory .memory-compiler python -c "import claude_agent_sdk"` exits 0. If it fails, the bundled venv is not being resolved and the hooks will run under system Python.
 
 Report the results to the user.
 
@@ -135,5 +136,5 @@ Report the results to the user.
 - Hooks fire automatically in subsequent Claude Code sessions. The current session will not have hooks active (they activate on next session start).
 - Knowledge articles are compiled into `.memory-compiler/knowledge/` with an index at `.memory-compiler/knowledge/index.md`.
 - Daily logs are written to `.memory-compiler/daily/`.
-- Run `uv run python .memory-compiler/scripts/compile.py` to manually compile daily logs into knowledge articles.
-- Run `uv run python .memory-compiler/scripts/query.py "question"` to query the knowledge base.
+- Run `uv run --directory .memory-compiler python scripts/compile.py` to manually compile daily logs into knowledge articles.
+- Run `uv run --directory .memory-compiler python scripts/query.py "question"` to query the knowledge base.
