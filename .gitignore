@@ -1,6 +1,12 @@
 # Claude Code local settings
 .claude/
 
+# Memory Compiler
+.memory-compiler/
+
+# Memory Bridge
+.memory-bridge/
+
 # Python
 __pycache__/
 *.py[cod]
