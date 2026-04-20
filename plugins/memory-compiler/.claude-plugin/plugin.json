@@ -1,6 +1,6 @@
 {
   "name": "memory-compiler",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
   "author": {
     "name": "Wexgaard"
