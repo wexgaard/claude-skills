@@ -1,6 +1,6 @@
 {
   "name": "memory-compiler",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Skills for Cole Medin's Claude Memory Compiler: `setup` clones the upstream repo and wires its hooks into a project; `show-compile-progress` replaces the empty popup window during end-of-day compile with a visible banner, spinner, and live step log.",
   "author": {
     "name": "Wexgaard"

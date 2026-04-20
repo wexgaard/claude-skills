@@ -42,8 +42,10 @@ def _enable_utf8_console() -> None:
 
 
 def _print_banner() -> None:
+    project = ROOT.parent.name or str(ROOT.parent)
     print(BAR)
     print("  Memory Compiler - compiling today's daily log")
+    print(f"  project {project}")
     print(f"  started {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(BAR)
     print()
