@@ -7,13 +7,13 @@
     {
       "name": "memory-compiler",
       "source": "./plugins/memory-compiler",
-      "description": "Installs Cole Medin's Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
+      "description": "Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
       "category": "development"
     },
     {
       "name": "memory-bridge",
       "source": "./plugins/memory-bridge",
-      "description": "Bridges memory-compiler daily logs to a SecondBrain-compatible ingest endpoint so per-project session knowledge feeds a central personal brain. Depends on memory-compiler; installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
+      "description": "Forwards memory-compiler daily logs from a project to a configurable HTTP ingestion endpoint, so per-project session knowledge can feed a cross-project memory store. Installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
       "category": "development"
     }
   ]

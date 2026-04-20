@@ -1,7 +1,7 @@
 {
   "name": "memory-compiler",
   "version": "0.1.0",
-  "description": "Installs Cole Medin's Claude Memory Compiler into any project. Clones the repo, merges hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
+  "description": "Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
   "author": {
     "name": "Wexgaard"
   }

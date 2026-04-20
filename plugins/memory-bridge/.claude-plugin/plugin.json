@@ -1,7 +1,10 @@
 {
   "name": "memory-bridge",
-  "version": "0.2.0",
-  "description": "Bridges memory-compiler daily logs to a SecondBrain-compatible ingest endpoint so per-project session knowledge feeds a central personal brain. Depends on memory-compiler; installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
+  "version": "0.2.1",
+  "description": "Forwards memory-compiler daily logs from a project to a configurable HTTP ingestion endpoint, so per-project session knowledge can feed a cross-project memory store. Installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
+  "dependencies": [
+    { "name": "memory-compiler" }
+  ],
   "author": {
     "name": "Wexgaard"
   }
