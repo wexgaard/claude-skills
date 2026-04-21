@@ -30,10 +30,21 @@ Check if `.memory-compiler/` directory exists in the project root. If it does, s
 
 **Before you begin:** Resolve the absolute path of the project root (the directory from which you are running this skill — the same directory that will contain `.memory-compiler/` after the clone). Use this absolute path for every file read and write in the remaining steps. Do not rely on the shell's current working directory, and do not use bare relative paths like `.claude/settings.json` or `.gitignore` — some harnesses persist `cd` state across tool calls, and a drifted cwd will silently retarget these edits into `.memory-compiler/` instead of the project root.
 
-Run the following commands from the project root:
+**Pick the source repository** using the `AskUserQuestion` tool:
+
+- `question`: `"Which memory-compiler repo should I clone?"`
+- `header`: `"Source repo"`
+- `multiSelect`: `false`
+- Options:
+  1. `label`: `"Cole Medin's upstream (Recommended)"`, `description`: `"Original project at github.com/coleam00/claude-memory-compiler"` → URL `https://github.com/coleam00/claude-memory-compiler.git`
+  2. `label`: `"Wexgaard fork"`, `description`: `"Personal fork at github.com/wexgaard/claude-memory-compiler with incremental compile, cooldown-based trigger, and prompt-context caps"` → URL `https://github.com/wexgaard/claude-memory-compiler.git`
+
+`AskUserQuestion` automatically exposes an "Other" option for free-text input. If the user picks "Other", use the URL they type verbatim (trim whitespace; reject anything that does not look like a git URL and re-ask).
+
+Substitute the chosen URL for `<repo-url>` below and run from the project root:
 
 ```bash
-git clone https://github.com/coleam00/claude-memory-compiler.git .memory-compiler
+git clone <repo-url> .memory-compiler
 uv sync --directory .memory-compiler
 ```
 
