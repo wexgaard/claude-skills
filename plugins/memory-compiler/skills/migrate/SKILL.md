@@ -138,4 +138,3 @@ Report to the user:
 ## Notes
 
 - This skill does **not** touch the project's `.claude/settings.json` — the hook commands already reference `.memory-compiler/hooks/...` by relative path, which stays valid regardless of which repo is cloned there.
-- There is also a CLI equivalent at `scripts/migrate-from-upstream.sh` inside the Wexgaard fork, for users who prefer running a script directly over invoking a skill.
