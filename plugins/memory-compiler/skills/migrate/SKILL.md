@@ -118,21 +118,50 @@ Re-sync dependencies (the target repo may have a different `pyproject.toml`):
 uv sync --directory <project-root>/.memory-compiler
 ```
 
-### Step 6: Verify and report
+### Step 6: Verify
 
-Run:
+Run three checks. If any fails, report the failure to the user and **do not** claim the migration succeeded.
+
+**Check 1 — remote is the chosen target.**
 
 ```bash
 git -C <project-root>/.memory-compiler remote get-url origin
+```
+
+Must equal the URL the user selected in Step 2.
+
+**Check 2 — HEAD matches `origin/main`.**
+
+```bash
+git -C <project-root>/.memory-compiler rev-parse HEAD
+git -C <project-root>/.memory-compiler rev-parse origin/main
+```
+
+Both SHAs must match. (They should, because Step 5 used `--ff-only`; this check catches any weird post-pull drift.)
+
+**Check 3 — the bundled venv resolves the target's `pyproject.toml`.**
+
+```bash
+uv run --directory <project-root>/.memory-compiler python -c "import claude_agent_sdk"
+```
+
+Must exit 0. If it fails, `uv` is silently falling back to system Python and the hooks will not work — the same failure mode the `setup` skill guards against. Tell the user to re-run `uv sync --directory <project-root>/.memory-compiler` and, if that does not fix it, check the `pyproject.toml` in the migrated repo.
+
+**Also capture, for the report:**
+
+```bash
 git -C <project-root>/.memory-compiler rev-parse --short HEAD
 git -C <project-root>/.memory-compiler log -1 --pretty=%s
 ```
 
-Report to the user:
+### Step 7: Report
 
-- New `origin` URL.
-- New HEAD commit (short SHA + subject).
+Tell the user:
+
+- ✅ or ❌ for each of the three checks.
+- New `origin` URL and new HEAD (short SHA + subject).
 - That local state (`daily/`, `knowledge/`, `scripts/state.json`, `scripts/last-flush.json`, `.venv/`) was preserved — those paths are gitignored inside the clone and are not touched by fetch/pull.
+- Suggest an end-to-end sanity check: restart Claude Code in this project and confirm that the `SessionStart` hook injects the knowledge-base index. (Checks 1–3 prove migration mechanics; the hook fire is the only thing that proves the install is still wired up end-to-end.)
 - If `show-compile-progress` was reverted in Step 4 option 1, remind the user to re-apply it.
 
 ## Notes
