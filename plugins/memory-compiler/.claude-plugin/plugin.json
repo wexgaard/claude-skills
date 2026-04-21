@@ -1,7 +1,7 @@
 {
   "name": "memory-compiler",
-  "version": "0.3.0",
-  "description": "Skills for Cole Medin's Claude Memory Compiler: `setup` clones the memory-compiler repo (upstream, a fork, or a custom URL) and wires its hooks into a project; `show-compile-progress` replaces the empty popup window during end-of-day compile with a visible banner, spinner, and live step log.",
+  "version": "0.4.0",
+  "description": "Skills for Cole Medin's Claude Memory Compiler: `setup` clones the memory-compiler repo (upstream, a fork, or a custom URL) and wires its hooks into a project; `migrate` swaps an existing install's origin to a different memory-compiler repo and fast-forwards; `show-compile-progress` replaces the empty popup window during end-of-day compile with a visible banner, spinner, and live step log.",
   "author": {
     "name": "Wexgaard"
   }
