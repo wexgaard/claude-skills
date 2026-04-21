@@ -7,7 +7,7 @@
     {
       "name": "memory-compiler",
       "source": "./plugins/memory-compiler",
-      "description": "Installer for Cole Medin's Claude Memory Compiler. Clones the upstream repo into any project, merges its hooks into the project's Claude Code settings, and updates .gitignore to enable automatic session capture and knowledge compilation.",
+      "description": "Plugin for Cole Medin's Claude Memory Compiler. `setup` clones the memory-compiler repo (upstream, a fork, or a custom URL) into any project and wires its hooks into the project's Claude Code settings. `migrate` swaps an existing install's origin to a different memory-compiler repo and fast-forwards. `show-compile-progress` replaces the empty popup during end-of-day compile with a labelled console showing a banner, spinner, and live step log.",
       "category": "development"
     },
     {
