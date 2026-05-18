@@ -15,6 +15,30 @@
       "source": "./plugins/memory-bridge",
       "description": "Forwards memory-compiler daily logs from a project to a configurable HTTP ingestion endpoint, so per-project session knowledge can feed a cross-project memory store. Installs a SessionEnd hook and a stdlib-only forwarder into the target project.",
       "category": "development"
+    },
+    {
+      "name": "git",
+      "source": "./plugins/git",
+      "description": "Git workflow skills. `commit` stages changes and creates a conventional commit message generated from the diff. `commit-push` does the same and pushes to the current remote branch in one step.",
+      "category": "development"
+    },
+    {
+      "name": "claude-md",
+      "source": "./plugins/claude-md",
+      "description": "Skills for maintaining the CLAUDE.md tree in a project. `audit` performs a maintenance pass: finds dead file/symbol references, duplicate content across sibling files, oversized sections, and outdated patterns; reports findings as a punch list and applies edits only after explicit approval.",
+      "category": "development"
+    },
+    {
+      "name": "session",
+      "source": "./plugins/session",
+      "description": "Skills for working with the current Claude Code session. `reflect` runs an end-of-session retrospective: surfaces durable lessons from what just happened, separates them from one-off task minutiae, and proposes concrete CLAUDE.md edits, new skill ideas, or memory entries.",
+      "category": "development"
+    },
+    {
+      "name": "skill",
+      "source": "./plugins/skill",
+      "description": "Skills for maintaining the user's Claude skill collection. `audit` walks `~/.claude/skills/` and flags visibility risk (side-effecting skills that should be auto-fire-disabled, background-knowledge skills that should be hidden from /menu), non-deterministic steps that should be scripts, and duplicated logic across skills.",
+      "category": "development"
     }
   ]
 }

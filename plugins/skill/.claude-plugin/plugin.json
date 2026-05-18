@@ -1,0 +1,8 @@
+{
+  "name": "skill",
+  "version": "0.1.0",
+  "description": "Skills for maintaining the user's Claude skill collection. `audit` walks `~/.claude/skills/` and flags visibility risk (side-effecting skills that should be auto-fire-disabled, background-knowledge skills that should be hidden from /menu), non-deterministic steps that should be scripts, and duplicated logic across skills.",
+  "author": {
+    "name": "Wexgaard"
+  }
+}

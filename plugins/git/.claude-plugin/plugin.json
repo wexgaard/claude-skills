@@ -1,0 +1,8 @@
+{
+  "name": "git",
+  "version": "0.1.0",
+  "description": "Git workflow skills. `commit` stages changes and creates a conventional commit message generated from the diff. `commit-push` does the same and pushes to the current remote branch in one step.",
+  "author": {
+    "name": "Wexgaard"
+  }
+}

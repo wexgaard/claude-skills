@@ -1,0 +1,8 @@
+{
+  "name": "claude-md",
+  "version": "0.1.0",
+  "description": "Skills for maintaining the CLAUDE.md tree in a project. `audit` performs a maintenance pass: finds dead file/symbol references, duplicate content across sibling files, oversized sections, and outdated patterns; reports findings as a punch list and applies edits only after explicit approval.",
+  "author": {
+    "name": "Wexgaard"
+  }
+}

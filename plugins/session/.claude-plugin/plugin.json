@@ -1,0 +1,8 @@
+{
+  "name": "session",
+  "version": "0.1.0",
+  "description": "Skills for working with the current Claude Code session. `reflect` runs an end-of-session retrospective: surfaces durable lessons from what just happened, separates them from one-off task minutiae, and proposes concrete CLAUDE.md edits, new skill ideas, or memory entries.",
+  "author": {
+    "name": "Wexgaard"
+  }
+}
